@@ -25,8 +25,8 @@ current and imported energy.
 2. In **Devices → Link App Account**, link the app account that owns the meters.
 3. In **Service API**, subscribe to **IoT Core** and **Device Status
    Notification**.
-4. Copy `.env.example` to `.env` and fill in `ACCESS_ID`, `ACCESS_KEY` and
-   `COUNTRY_CODE`.
+4. Copy `.env.example` to `.env` and fill in `TUYA_ACCESS_ID`,
+   `TUYA_ACCESS_KEY` and `TUYA_COUNTRY_CODE`.
 
 ```sh
 npm install
@@ -55,18 +55,22 @@ Matter controller. The choice of devices is stored, so it survives a restart.
 
 ## Configuration
 
-| Variable               | Required | Default             | Meaning                                       |
-| ---------------------- | -------- | ------------------- | --------------------------------------------- |
-| `ACCESS_ID`            | yes      |                     | Cloud project access ID.                      |
-| `ACCESS_KEY`           | yes      |                     | Cloud project access secret.                  |
-| `COUNTRY_CODE`         | no       | `1`                 | Phone country code; selects the data center.  |
-| `TUYA_ENDPOINT`        | no       | from `COUNTRY_CODE` | Overrides the data center URL.                |
-| `POLL_INTERVAL`        | no       | `30`                | Seconds between Tuya cloud reads.             |
-| `WEB_PORT`             | no       | `8080`              | Port of the web page.                         |
-| `STATE_FILE`           | no       | next to Matter data | File that stores the exposed devices.         |
-| `MATTER_PASSCODE`      | no       | `20202021`          | Commissioning passcode.                       |
-| `MATTER_DISCRIMINATOR` | no       | `3840`              | Commissioning discriminator.                  |
-| `MATTER_PORT`          | no       | `5540`              | Matter UDP port.                              |
+| Variable               | Required | Default              | Meaning                                      |
+| ---------------------- | -------- | -------------------- | -------------------------------------------- |
+| `TUYA_ACCESS_ID`       | yes      |                      | Cloud project access ID.                     |
+| `TUYA_ACCESS_KEY`      | yes      |                      | Cloud project access secret.                 |
+| `TUYA_COUNTRY_CODE`    | no       | `1`                  | Phone country code; selects the data center. |
+| `TUYA_ENDPOINT`        | no       | from the country     | Overrides the data center URL.               |
+| `TUYA_POLL_INTERVAL`   | no       | `30`                 | Seconds between Tuya cloud reads.            |
+| `TUYA_WEB_PORT`        | no       | `8080`               | Port of the web page.                        |
+| `TUYA_STATE_FILE`      | no       | next to Matter data  | File that stores the exposed devices.        |
+| `MATTER_PASSCODE`      | no       | `20202021`           | Commissioning passcode.                      |
+| `MATTER_DISCRIMINATOR` | no       | `3840`               | Commissioning discriminator.                 |
+| `MATTER_PORT`          | no       | `5540`               | Matter UDP port.                             |
+
+Every setting this bridge owns is prefixed, because bare names such as
+`ACCESS_ID` collide with other tools. A real environment variable always wins
+over the `.env` file, so an old export can hide the file without a warning.
 
 If login fails with `clientId invalid` or `data center is suspended`, the
 project lives in a different data center. Set `TUYA_ENDPOINT` to one of
@@ -94,9 +98,24 @@ configures a momentary switch, so it is not treated as one.
 
 ## State
 
-The Matter fabric and node state live in `~/.matter/tuya-matter`. Delete that
-directory to factory reset the bridge. The list of exposed devices is in
-`~/.matter/tuya-matter-devices.json`.
+The Matter fabric and node state live in `~/.matter/tuya-matter`. The list of
+exposed devices is in `~/.matter/tuya-matter-devices.json`.
+
+## Clearing the pairings
+
+Remove the bridge in your controller first. That deletes the fabric on both
+sides.
+
+If the controller entry is gone or stuck, factory reset the bridge. Stop it
+first, because it locks its storage:
+
+```sh
+npm run reset
+npm start
+```
+
+The bridge then prints a new pairing code. Your controller keeps a dead entry
+for the old bridge, so remove it by hand. The list of exposed devices survives.
 
 ## Limits
 

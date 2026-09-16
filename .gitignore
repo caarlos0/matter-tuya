@@ -1,4 +1,8 @@
 node_modules/
 dist/
-.env
+.env*
+!.env.example
 .matter/
+
+# Default TUYA_STATE_FILE when it is pointed at the project directory.
+/storage.json

@@ -66,21 +66,25 @@ function optionalNumber(name: string, fallback: number): number {
   return value;
 }
 
+/**
+ * Every setting is prefixed. Bare names such as `ACCESS_ID` collide with other
+ * tools, and a real environment variable silently wins over the `.env` file.
+ */
 export function loadConfig(): Config {
-  const countryCode = optionalNumber("COUNTRY_CODE", 1);
+  const countryCode = optionalNumber("TUYA_COUNTRY_CODE", 1);
 
   return {
     endpoint: process.env.TUYA_ENDPOINT?.trim() || defaultEndpoint(countryCode),
-    accessId: required("ACCESS_ID"),
-    accessKey: required("ACCESS_KEY"),
-    pollIntervalMs: optionalNumber("POLL_INTERVAL", 30) * 1000,
+    accessId: required("TUYA_ACCESS_ID"),
+    accessKey: required("TUYA_ACCESS_KEY"),
+    pollIntervalMs: optionalNumber("TUYA_POLL_INTERVAL", 30) * 1000,
     stateFile:
-      process.env.STATE_FILE?.trim() ||
+      process.env.TUYA_STATE_FILE?.trim() ||
       join(
         process.env.MATTER_STORAGE_PATH?.trim() || join(homedir(), ".matter"),
         "tuya-matter-devices.json",
       ),
-    webPort: optionalNumber("WEB_PORT", 8080),
+    webPort: optionalNumber("TUYA_WEB_PORT", 8080),
     matter: {
       passcode: optionalNumber("MATTER_PASSCODE", 20202021),
       discriminator: optionalNumber("MATTER_DISCRIMINATOR", 3840),
