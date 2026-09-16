@@ -98,6 +98,16 @@ export const PAGE = `<!doctype html>
       .error:empty {
         display: none;
       }
+      footer {
+        margin-top: 2.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--line);
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      footer a {
+        color: inherit;
+      }
     </style>
   </head>
   <body>
@@ -119,6 +129,12 @@ export const PAGE = `<!doctype html>
       </thead>
       <tbody id="devices"></tbody>
     </table>
+
+    <footer>
+      <a href="https://github.com/caarlos0/matter-tuya" target="_blank" rel="noreferrer">
+        github.com/caarlos0/matter-tuya
+      </a>
+    </footer>
 
     <script type="module">
       const UNITS = {
