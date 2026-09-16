@@ -1,87 +1,28 @@
 import { loadConfig } from "./config.js";
+import { Devices } from "./devices.js";
 import { Bridge } from "./matter/bridge.js";
-import { TuyaApi, type TuyaDevice } from "./tuya/api.js";
-import {
-  measurementsOf,
-  readMeasurements,
-  type Measurement,
-} from "./tuya/meters.js";
+import { TuyaApi } from "./tuya/api.js";
+import { startWeb } from "./web.js";
 
-type Meter = { device: TuyaDevice; measurements: Measurement[] };
+const config = loadConfig();
+const api = new TuyaApi(config.endpoint, config.accessId, config.accessKey);
+await api.login();
 
-async function findMeters(api: TuyaApi): Promise<Meter[]> {
-  const meters: Meter[] = [];
-  for (const device of await api.devices()) {
-    const measurements = measurementsOf(await api.properties(device.id));
-    if (measurements.length > 0) {
-      meters.push({ device, measurements });
-    }
-  }
-  return meters;
+const bridge = new Bridge(config.matter);
+await bridge.start();
+
+const devices = new Devices(api, bridge, config.stateFile);
+await devices.load();
+await devices.poll();
+
+await startWeb(config.webPort, devices, bridge);
+console.log(`Choose the devices to expose at http://localhost:${config.webPort}`);
+
+const timer = setInterval(() => void devices.poll(), config.pollIntervalMs);
+
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    clearInterval(timer);
+    void bridge.stop().then(() => process.exit(0));
+  });
 }
-
-async function poll(api: TuyaApi, bridge: Bridge, meters: Meter[]) {
-  for (const { device, measurements } of meters) {
-    try {
-      const values = await api.values(device.id);
-      await bridge.updateMeter(
-        device.id,
-        true,
-        readMeasurements(measurements, values),
-      );
-    } catch (error) {
-      console.error(`failed to read ${device.name}:`, error);
-      await bridge.updateMeter(device.id, false, {});
-    }
-  }
-}
-
-async function main() {
-  const config = loadConfig();
-  const api = new TuyaApi(config.endpoint, config.accessId, config.accessKey);
-  await api.login();
-
-  const meters = await findMeters(api);
-  if (meters.length === 0) {
-    console.error("no Tuya devices with electricity metering found");
-    return;
-  }
-
-  const bridge = new Bridge(config.matter);
-  await bridge.start();
-
-  for (const { device, measurements } of meters) {
-    console.log(
-      `exposing ${device.name} (${device.category}): ` +
-        measurements.map((m) => m.quantity).join(", "),
-    );
-    await bridge.addMeter({
-      id: device.id,
-      name: device.name,
-      productName: device.product_name ?? device.category,
-      reachable: device.online,
-      measurements,
-    });
-  }
-
-  const codes = bridge.commissioning;
-  if (codes) {
-    console.log(`\nPair this bridge with: ${codes.manualPairingCode}`);
-    console.log(`${codes.qrPairingCode}\n`);
-  }
-
-  await poll(api, bridge, meters);
-  const timer = setInterval(
-    () => void poll(api, bridge, meters),
-    config.pollIntervalMs,
-  );
-
-  for (const signal of ["SIGINT", "SIGTERM"] as const) {
-    process.once(signal, () => {
-      clearInterval(timer);
-      void bridge.stop().then(() => process.exit(0));
-    });
-  }
-}
-
-await main();

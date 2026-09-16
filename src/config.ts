@@ -1,10 +1,14 @@
 import "dotenv/config";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 export type Config = {
   endpoint: string;
   accessId: string;
   accessKey: string;
   pollIntervalMs: number;
+  stateFile: string;
+  webPort: number;
   matter: {
     passcode: number;
     discriminator: number;
@@ -70,6 +74,13 @@ export function loadConfig(): Config {
     accessId: required("ACCESS_ID"),
     accessKey: required("ACCESS_KEY"),
     pollIntervalMs: optionalNumber("POLL_INTERVAL", 30) * 1000,
+    stateFile:
+      process.env.STATE_FILE?.trim() ||
+      join(
+        process.env.MATTER_STORAGE_PATH?.trim() || join(homedir(), ".matter"),
+        "tuya-matter-devices.json",
+      ),
+    webPort: optionalNumber("WEB_PORT", 8080),
     matter: {
       passcode: optionalNumber("MATTER_PASSCODE", 20202021),
       discriminator: optionalNumber("MATTER_DISCRIMINATOR", 3840),

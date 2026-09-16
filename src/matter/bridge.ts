@@ -56,6 +56,14 @@ export class Bridge {
     this.#meters.set(info.id, meter);
   }
 
+  async removeMeter(deviceId: string): Promise<void> {
+    const meter = this.#meters.get(deviceId);
+    if (meter) {
+      this.#meters.delete(deviceId);
+      await meter.endpoint.delete();
+    }
+  }
+
   async updateMeter(
     deviceId: string,
     reachable: boolean,

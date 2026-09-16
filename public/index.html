@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>tuya-matter</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --line: color-mix(in srgb, currentColor 15%, transparent);
+        --muted: color-mix(in srgb, currentColor 55%, transparent);
+      }
+      body {
+        margin: 0 auto;
+        padding: 2rem 1rem 4rem;
+        max-width: 52rem;
+        font: 15px/1.5 system-ui, sans-serif;
+      }
+      header {
+        display: flex;
+        align-items: baseline;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      h1 {
+        flex: 1;
+        margin: 0;
+        font-size: 1.4rem;
+      }
+      button {
+        font: inherit;
+        padding: 0.35rem 0.8rem;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      .pairing {
+        margin-bottom: 1.5rem;
+        padding: 0.8rem 1rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+      .pairing code {
+        font-size: 1.1rem;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th {
+        text-align: left;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        padding-bottom: 0.4rem;
+      }
+      td,
+      th {
+        border-bottom: 1px solid var(--line);
+        padding: 0.6rem 0.5rem;
+        vertical-align: top;
+      }
+      td:last-child,
+      th:last-child {
+        text-align: right;
+      }
+      .name {
+        font-weight: 600;
+      }
+      .sub,
+      .readings {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      .readings {
+        font-variant-numeric: tabular-nums;
+      }
+      .offline {
+        opacity: 0.55;
+      }
+      .error {
+        margin-bottom: 1rem;
+        padding: 0.6rem 0.8rem;
+        border-radius: 6px;
+        background: color-mix(in srgb, crimson 18%, transparent);
+      }
+      .error:empty {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>tuya-matter</h1>
+      <button id="refresh">Refresh from Tuya</button>
+    </header>
+
+    <p class="error" id="error"></p>
+    <div class="pairing" id="pairing" hidden></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Device</th>
+          <th>Measures</th>
+          <th>Matter</th>
+        </tr>
+      </thead>
+      <tbody id="devices"></tbody>
+    </table>
+
+    <script type="module">
+      const UNITS = {
+        power: ["W", 1000],
+        voltage: ["V", 1000],
+        current: ["A", 1000],
+        energy: ["kWh", 1000000],
+      };
+
+      const tbody = document.getElementById("devices");
+      const errorBox = document.getElementById("error");
+      const pairing = document.getElementById("pairing");
+      const refresh = document.getElementById("refresh");
+
+      async function call(path, options) {
+        const response = await fetch(path, options);
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error ?? response.statusText);
+        return body;
+      }
+
+      function format(readings) {
+        return Object.entries(readings)
+          .map(([quantity, value]) => {
+            const [unit, divisor] = UNITS[quantity];
+            return `${(value / divisor).toFixed(quantity === "current" ? 3 : 1)} ${unit}`;
+          })
+          .join(" · ");
+      }
+
+      function render(devices) {
+        tbody.replaceChildren(
+          ...devices.map((device) => {
+            const row = document.createElement("tr");
+            if (!device.online) row.className = "offline";
+
+            const name = document.createElement("td");
+            name.innerHTML = `<div class="name"></div><div class="sub"></div><div class="readings"></div>`;
+            name.querySelector(".name").textContent = device.name;
+            name.querySelector(".sub").textContent =
+              `${device.productName}${device.online ? "" : " · offline"}`;
+            name.querySelector(".readings").textContent = device.enabled
+              ? format(device.readings)
+              : "";
+
+            const measures = document.createElement("td");
+            measures.className = "sub";
+            measures.textContent = device.quantities.length
+              ? device.quantities.join(", ")
+              : "no electricity metering";
+
+            const action = document.createElement("td");
+            const button = document.createElement("button");
+            button.textContent = device.enabled ? "Remove" : "Expose";
+            button.disabled = device.quantities.length === 0;
+            button.onclick = async () => {
+              button.disabled = true;
+              await update(`/api/devices/${encodeURIComponent(device.id)}`, {
+                method: "PUT",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ enabled: !device.enabled }),
+              });
+            };
+            action.append(button);
+
+            row.append(name, measures, action);
+            return row;
+          }),
+        );
+      }
+
+      async function update(path, options) {
+        errorBox.textContent = "";
+        try {
+          render((await call(path, options)).devices);
+        } catch (error) {
+          errorBox.textContent = error.message;
+          await load();
+        }
+      }
+
+      async function load() {
+        const state = await call("/api/state");
+        render(state.devices);
+        if (state.commissioning) {
+          pairing.hidden = false;
+          pairing.innerHTML = `Pair this bridge with code <code></code> · <a target="_blank" rel="noreferrer">QR code</a>`;
+          pairing.querySelector("code").textContent =
+            state.commissioning.manualPairingCode;
+          pairing.querySelector("a").href =
+            `https://project-chip.github.io/connectedhomeip/qrcode.html?data=${encodeURIComponent(state.commissioning.qrPairingCode)}`;
+        } else {
+          pairing.hidden = true;
+        }
+      }
+
+      refresh.onclick = async () => {
+        refresh.disabled = true;
+        await update("/api/refresh", { method: "POST" });
+        refresh.disabled = false;
+      };
+
+      await load();
+      setInterval(() => load().catch(() => {}), 10000);
+    </script>
+  </body>
+</html>
