@@ -1,0 +1,25 @@
+{
+  "name": "tuya-matter",
+  "version": "0.1.0",
+  "description": "Expose Tuya devices as Matter devices",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "tsc && node --test dist/",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@matter/main": "^0.17.9",
+    "@matter/nodejs": "^0.17.9",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.3",
+    "typescript": "^7.0.2"
+  }
+}
