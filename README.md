@@ -107,15 +107,18 @@ Remove the bridge in your controller first. That deletes the fabric on both
 sides.
 
 If the controller entry is gone or stuck, factory reset the bridge. Stop it
-first, because it locks its storage:
+first: erasing the state under a running bridge leaves the old fabric in memory,
+and the pairing code does not come back. `npm run reset` refuses while the
+bridge runs.
 
 ```sh
 npm run reset
 npm start
 ```
 
-The bridge then prints a new pairing code. Your controller keeps a dead entry
-for the old bridge, so remove it by hand. The list of exposed devices survives.
+The bridge then prints a new pairing code, on the page and in the log. Your
+controller keeps a dead entry for the old bridge, so remove it by hand. The list
+of exposed devices survives.
 
 ## Limits
 
