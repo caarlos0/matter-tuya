@@ -1,4 +1,8 @@
-<!doctype html>
+/**
+ * The device page. It is inlined so the released binary is a single file
+ * with no assets to install beside it.
+ */
+export const PAGE = `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -140,7 +144,7 @@
         const parts = Object.entries(device.readings).map(
           ([quantity, value]) => {
             const [unit, divisor] = UNITS[quantity];
-            return `${(value / divisor).toFixed(quantity === "current" ? 3 : 1)} ${unit}`;
+            return \`\${(value / divisor).toFixed(quantity === "current" ? 3 : 1)} \${unit}\`;
           },
         );
         if (device.on !== undefined) parts.unshift(device.on ? "on" : "off");
@@ -160,10 +164,10 @@
             if (!device.online) row.className = "offline";
 
             const name = document.createElement("td");
-            name.innerHTML = `<div class="name"></div><div class="sub"></div><div class="readings"></div>`;
+            name.innerHTML = \`<div class="name"></div><div class="sub"></div><div class="readings"></div>\`;
             name.querySelector(".name").textContent = device.name;
             name.querySelector(".sub").textContent =
-              `${device.productName}${device.online ? "" : " · offline"}`;
+              \`\${device.productName}\${device.online ? "" : " · offline"}\`;
             name.querySelector(".readings").textContent = device.enabled
               ? format(device)
               : "";
@@ -178,7 +182,7 @@
             button.disabled = !device.switchable && !device.quantities.length;
             button.onclick = async () => {
               button.disabled = true;
-              await update(`/api/devices/${encodeURIComponent(device.id)}`, {
+              await update(\`/api/devices/\${encodeURIComponent(device.id)}\`, {
                 method: "PUT",
                 headers: { "content-type": "application/json" },
                 body: JSON.stringify({ enabled: !device.enabled }),
@@ -207,11 +211,11 @@
         render(state.devices);
         if (state.commissioning) {
           pairing.hidden = false;
-          pairing.innerHTML = `Pair this bridge with code <code></code> · <a target="_blank" rel="noreferrer">QR code</a>`;
+          pairing.innerHTML = \`Pair this bridge with code <code></code> · <a target="_blank" rel="noreferrer">QR code</a>\`;
           pairing.querySelector("code").textContent =
             state.commissioning.manualPairingCode;
           pairing.querySelector("a").href =
-            `https://project-chip.github.io/connectedhomeip/qrcode.html?data=${encodeURIComponent(state.commissioning.qrPairingCode)}`;
+            \`https://project-chip.github.io/connectedhomeip/qrcode.html?data=\${encodeURIComponent(state.commissioning.qrPairingCode)}\`;
         } else {
           pairing.hidden = true;
         }
@@ -228,3 +232,4 @@
     </script>
   </body>
 </html>
+`;

@@ -12,11 +12,23 @@ and the bridge publishes them over Matter:
 Controllers such as Home Assistant then show the switch, active power, voltage,
 current and imported energy.
 
+## Install
+
+Download a Linux binary from the [releases page][releases]. It is
+self-contained: no runtime, no `node_modules`, no files beside it.
+
+```sh
+tar xf tuya-matter_Linux_x86_64.tar.gz
+./tuya-matter
+```
+
+[releases]: https://github.com/caarlos0/matter-tuya/releases
+
 ## Requirements
 
-- Node.js 22 or later.
 - A Tuya IoT Platform cloud project with a linked Smart Life / Tuya Smart app
   account.
+- [Bun](https://bun.sh) 1.4 or later, to run from source.
 
 ## Setup
 
@@ -29,9 +41,8 @@ current and imported energy.
    `TUYA_ACCESS_KEY` and `TUYA_COUNTRY_CODE`.
 
 ```sh
-npm install
-npm run build
-npm start
+bun install
+bun start
 ```
 
 Then open <http://localhost:8080>.
@@ -108,12 +119,12 @@ sides.
 
 If the controller entry is gone or stuck, factory reset the bridge. Stop it
 first: erasing the state under a running bridge leaves the old fabric in memory,
-and the pairing code does not come back. `npm run reset` refuses while the
+and the pairing code does not come back. `bun run reset` refuses while the
 bridge runs.
 
 ```sh
-npm run reset
-npm start
+bun run reset
+bun start
 ```
 
 The bridge then prints a new pairing code, on the page and in the log. Your
@@ -128,3 +139,24 @@ of exposed devices survives.
 - One endpoint per device. Multi-channel meters and multi-gang switches expose
   their first channel only.
 - Polling only. The Tuya push (Pulsar) stream is not used.
+
+## Development
+
+```sh
+bun start          # run from source
+bun test src       # run the tests
+bun run typecheck  # tsc --noEmit
+bun run build      # compile a binary for this machine
+```
+
+Releases are built by [GoReleaser](https://goreleaser.com) with the Bun builder,
+which runs `bun build --compile` for `linux-x64` and `linux-arm64`. Push a tag
+to release:
+
+```sh
+git tag -a v0.1.0 -m v0.1.0
+git push origin v0.1.0
+```
+
+The web page is inlined in `src/page.ts` so the binary stays a single file.
+Edit it there.

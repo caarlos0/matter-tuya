@@ -1,8 +1,16 @@
 node_modules/
-dist/
 .env*
 !.env.example
 .matter/
 
+# goreleaser
+dist/
+
+# bun build --compile
+/tuya-matter
+
 # Default TUYA_STATE_FILE when it is pointed at the project directory.
 /storage.json
+
+# bun build temporary files
+*.bun-build

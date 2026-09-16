@@ -23,12 +23,12 @@ if (pid && isRunning(pid)) {
 await rm(dir, { recursive: true, force: true });
 console.log(`Erased ${dir}. Start the bridge for a new pairing code.`);
 
-function isRunning(pid) {
+function isRunning(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
   } catch (error) {
     // EPERM means the process exists but belongs to another user.
-    return error.code === "EPERM";
+    return (error as NodeJS.ErrnoException).code === "EPERM";
   }
 }

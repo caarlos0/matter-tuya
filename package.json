@@ -2,21 +2,20 @@
   "name": "tuya-matter",
   "version": "0.1.0",
   "description": "Expose Tuya devices as Matter devices",
-  "main": "dist/index.js",
+  "main": "src/index.ts",
   "scripts": {
-    "test": "npm run build && node --test dist/",
-    "build": "rm -rf dist && tsc",
-    "start": "node dist/index.js",
-    "dev": "npm run build && node dist/index.js",
-    "reset": "node scripts/reset.mjs"
+    "test": "bun test src",
+    "build": "bun build src/index.ts --compile --outfile tuya-matter",
+    "start": "bun run src/index.ts",
+    "reset": "bun run scripts/reset.ts",
+    "typecheck": "tsc"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@matter/main": "^0.17.9",
-    "dotenv": "^17.4.2"
+    "@matter/main": "^0.17.9"
   },
   "devDependencies": {
     "@types/node": "^22.20.3",

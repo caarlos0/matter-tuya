@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import {
   createServer,
   type IncomingMessage,
@@ -7,8 +6,7 @@ import {
 
 import type { Devices } from "./devices.js";
 import type { Bridge } from "./matter/bridge.js";
-
-const PAGE = new URL("../public/index.html", import.meta.url);
+import { PAGE } from "./page.js";
 
 /** Serves the device list and the enable/disable controls. */
 export function startWeb(
@@ -35,7 +33,7 @@ async function handle(
 
   if (request.method === "GET" && url.pathname === "/") {
     response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-    response.end(await readFile(PAGE));
+    response.end(PAGE);
     return;
   }
 
