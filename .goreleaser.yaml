@@ -30,6 +30,14 @@ archives:
       - LICENSE*
       - .env.example
 
+nfpms:
+  - vendor: Becker Software LTDA
+    homepage: https://github.com/caarlos0/matter-tuya
+    maintainer: Carlos Becker <root@carlosbecker.dev>
+    description: Expose Tuya cloud devices as Matter devices on the local network.
+    license: MIT
+    formats: [deb]
+
 changelog:
   sort: asc
   filters:

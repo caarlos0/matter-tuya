@@ -14,8 +14,14 @@ current and imported energy.
 
 ## Install
 
-Download a Linux binary from the [releases page][releases]. It is
-self-contained: no runtime, no `node_modules`, no files beside it.
+Get a `.deb` or a tarball from the [releases page][releases], for `x86_64` or
+`arm64`. The binary is self-contained: no runtime, no `node_modules`, no files
+beside it.
+
+```sh
+sudo dpkg -i tuya-matter_0.1.0_linux_amd64.deb
+tuya-matter
+```
 
 ```sh
 tar xf tuya-matter_Linux_x86_64.tar.gz
