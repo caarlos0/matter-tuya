@@ -1,7 +1,11 @@
 import { loadConfig } from "./config.js";
 import { Bridge } from "./matter/bridge.js";
 import { TuyaApi, type TuyaDevice } from "./tuya/api.js";
-import { measurementsOf, readMeasurements, type Measurement } from "./tuya/meters.js";
+import {
+  measurementsOf,
+  readMeasurements,
+  type Measurement,
+} from "./tuya/meters.js";
 
 type Meter = { device: TuyaDevice; measurements: Measurement[] };
 
@@ -54,7 +58,6 @@ async function main() {
     await bridge.addMeter({
       id: device.id,
       name: device.name,
-      vendorName: "Tuya",
       productName: device.product_name ?? device.category,
       reachable: device.online,
       measurements,

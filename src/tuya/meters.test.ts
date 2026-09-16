@@ -4,12 +4,8 @@ import { test } from "node:test";
 import type { TuyaProperty } from "./api.js";
 import { measurementsOf, readMeasurements } from "./meters.js";
 
-function property(
-  code: string,
-  unit?: string,
-  scale = 0,
-): TuyaProperty {
-  return { code, accessMode: "ro", typeSpec: { type: "value", unit, scale } };
+function property(code: string, unit?: string, scale = 0): TuyaProperty {
+  return { code, typeSpec: { unit, scale } };
 }
 
 // Thing model of an EKAZA current transformer meter.
@@ -72,10 +68,7 @@ test("ignores calibration coefficients", () => {
 });
 
 test("ignores devices without power or energy", () => {
-  assert.deepEqual(
-    measurementsOf([property("cur_voltage", "V", 1)]),
-    [],
-  );
+  assert.deepEqual(measurementsOf([property("cur_voltage", "V", 1)]), []);
 });
 
 test("ignores properties with an unknown unit", () => {

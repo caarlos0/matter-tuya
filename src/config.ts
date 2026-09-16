@@ -32,7 +32,7 @@ const EUROPE_COUNTRIES = new Set([
   972, 973, 974, 975, 976, 977, 992, 993, 994, 995, 996,
 ]);
 
-export function defaultEndpoint(countryCode: number): string {
+function defaultEndpoint(countryCode: number): string {
   const direct = ENDPOINT_BY_COUNTRY[countryCode];
   if (direct) {
     return direct;

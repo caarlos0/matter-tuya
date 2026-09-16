@@ -19,6 +19,8 @@ const MEASUREMENT_TYPES: Record<Quantity, MeasurementType> = {
 /** Matter allows at most 32 characters per string attribute. */
 const LABEL_LENGTH = 32;
 
+const VENDOR_NAME = "Tuya";
+
 const MeterEndpoint = ElectricalSensorEndpoint.with(
   BridgedDeviceBasicInformationServer,
   PowerTopologyServer.with("NodeTopology"),
@@ -29,7 +31,6 @@ const MeterEndpoint = ElectricalSensorEndpoint.with(
 export type MeterInfo = {
   id: string;
   name: string;
-  vendorName: string;
   productName: string;
   reachable: boolean;
   measurements: Measurement[];
@@ -48,7 +49,7 @@ export class MeterEndpointHandle {
       id: endpointId(info.id),
       bridgedDeviceBasicInformation: {
         nodeLabel: info.name.slice(0, LABEL_LENGTH),
-        vendorName: info.vendorName.slice(0, LABEL_LENGTH),
+        vendorName: VENDOR_NAME,
         productName: info.productName.slice(0, LABEL_LENGTH),
         serialNumber: info.id.slice(0, LABEL_LENGTH),
         reachable: info.reachable,
