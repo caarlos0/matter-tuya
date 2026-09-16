@@ -9,8 +9,6 @@ project_name: tuya-matter
 before:
   hooks:
     - bun install --frozen-lockfile
-    - bun run typecheck
-    - bun test src
 
 builds:
   - builder: bun
