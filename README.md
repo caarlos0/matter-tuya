@@ -3,9 +3,14 @@
 Exposes Tuya cloud devices as Matter devices on your local network.
 
 A web page lists every device in your Tuya account. Choose the ones you want,
-and the bridge publishes each as a Matter **Electrical Sensor** endpoint.
-Controllers such as Home Assistant then show active power, voltage, current and
-imported energy.
+and the bridge publishes them over Matter:
+
+- A device with a power switch becomes an **On/Off Plug-in Unit**. Its meter, if
+  it has one, is a composed **Electrical Sensor** endpoint.
+- A device that only meters becomes an **Electrical Sensor**.
+
+Controllers such as Home Assistant then show the switch, active power, voltage,
+current and imported energy.
 
 ## Requirements
 
@@ -38,12 +43,12 @@ The page lists every device in the linked Tuya account.
 - **Expose** adds the device to the Matter bridge. The controller sees it at
   once; no restart is needed.
 - **Remove** takes it off the bridge again.
-- Devices without electricity metering cannot be exposed, so their button is
-  disabled.
+- A device with neither a switch nor metering cannot be exposed, so its button
+  is disabled.
 - **Refresh from Tuya** reloads the account. A device you deleted in the Tuya
   app is removed from the bridge too.
-- Exposed devices show their latest reading, refreshed every `POLL_INTERVAL`
-  seconds.
+- Exposed devices show their switch state and latest reading, refreshed every
+  `POLL_INTERVAL` seconds.
 
 The page also shows the pairing code. Use it to commission the bridge in your
 Matter controller. The choice of devices is stored, so it survives a restart.
@@ -74,15 +79,18 @@ project lives in a different data center. Set `TUYA_ENDPOINT` to one of
 2. Lists the devices of the linked app accounts
    (`/v1.0/iot-01/associated-users/devices`).
 3. Reads each thing model (`/v2.0/cloud/thing/{id}/model`) and keeps the
-   properties that report power, voltage, current or cumulative energy. The
-   model gives the unit and the scale, so values convert into the Matter
-   milli-units (mW, mV, mA, mWh).
+   properties that report power, voltage, current or cumulative energy, plus a
+   writable boolean `switch` or `switch_<n>`. The model gives the unit and the
+   scale, so values convert into the Matter milli-units (mW, mV, mA, mWh).
 4. Polls the property shadow (`/v2.0/cloud/thing/{id}/shadow/properties`) of the
    exposed devices and writes the values into the Matter attributes.
+5. Sends a Matter on/off command to
+   `/v2.0/cloud/thing/{id}/shadow/properties/issue`. Matter reports the new
+   state only after Tuya accepts the command.
 
-A device with neither power nor energy cannot be exposed. Codes such as
-`add_ele` report the increment since the last report, so they cannot feed the
-cumulative Matter attribute and are ignored.
+Codes such as `add_ele` report the increment since the last report, so they
+cannot feed the cumulative Matter attribute and are ignored. `switch_inching`
+configures a momentary switch, so it is not treated as one.
 
 ## State
 
@@ -92,7 +100,9 @@ directory to factory reset the bridge. The list of exposed devices is in
 
 ## Limits
 
-- Read-only. Switches and other controls are not exposed yet.
+- Only power switches and electricity metering. Lights, covers and other
+  controls are not exposed yet.
 - The web page has no authentication. Keep it on a trusted network.
-- One endpoint per device. Multi-channel meters report their first channel only.
+- One endpoint per device. Multi-channel meters and multi-gang switches expose
+  their first channel only.
 - Polling only. The Tuya push (Pulsar) stream is not used.

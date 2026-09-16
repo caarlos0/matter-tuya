@@ -55,11 +55,38 @@ function unitFactor(quantity: Quantity, unit: string): number | undefined {
   return UNITS[quantity][unit.toLowerCase().replace(/[^a-z]/g, "")];
 }
 
+/** What a Tuya device offers over Matter. */
+export type Capabilities = {
+  measurements: Measurement[];
+  /** Tuya property code of the power switch, e.g. `switch_1`. */
+  switchCode?: string;
+};
+
+export function capabilitiesOf(properties: TuyaProperty[]): Capabilities {
+  return {
+    measurements: measurementsOf(properties),
+    switchCode: switchCodeOf(properties),
+  };
+}
+
+/**
+ * Finds the writable on/off property. `switch_inching` and other settings are
+ * not switches, so the code must match exactly.
+ */
+function switchCodeOf(properties: TuyaProperty[]): string | undefined {
+  return properties.find(
+    ({ code, accessMode, typeSpec }) =>
+      /^switch(_\d+)?$/.test(code) &&
+      typeSpec.type === "bool" &&
+      accessMode.includes("w"),
+  )?.code;
+}
+
 /**
  * Selects the measurements a Tuya device reports. Returns an empty list for
  * devices without electricity metering.
  */
-export function measurementsOf(properties: TuyaProperty[]): Measurement[] {
+function measurementsOf(properties: TuyaProperty[]): Measurement[] {
   const measurements = new Map<Quantity, Measurement>();
 
   for (const { code, typeSpec } of properties) {

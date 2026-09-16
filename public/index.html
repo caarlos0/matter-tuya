@@ -109,7 +109,7 @@
       <thead>
         <tr>
           <th>Device</th>
-          <th>Measures</th>
+          <th>Exposes</th>
           <th>Matter</th>
         </tr>
       </thead>
@@ -136,13 +136,21 @@
         return body;
       }
 
-      function format(readings) {
-        return Object.entries(readings)
-          .map(([quantity, value]) => {
+      function format(device) {
+        const parts = Object.entries(device.readings).map(
+          ([quantity, value]) => {
             const [unit, divisor] = UNITS[quantity];
             return `${(value / divisor).toFixed(quantity === "current" ? 3 : 1)} ${unit}`;
-          })
-          .join(" · ");
+          },
+        );
+        if (device.on !== undefined) parts.unshift(device.on ? "on" : "off");
+        return parts.join(" · ");
+      }
+
+      function capabilities(device) {
+        const parts = [...device.quantities];
+        if (device.switchable) parts.unshift("on/off");
+        return parts.length ? parts.join(", ") : "nothing to expose";
       }
 
       function render(devices) {
@@ -157,19 +165,17 @@
             name.querySelector(".sub").textContent =
               `${device.productName}${device.online ? "" : " · offline"}`;
             name.querySelector(".readings").textContent = device.enabled
-              ? format(device.readings)
+              ? format(device)
               : "";
 
             const measures = document.createElement("td");
             measures.className = "sub";
-            measures.textContent = device.quantities.length
-              ? device.quantities.join(", ")
-              : "no electricity metering";
+            measures.textContent = capabilities(device);
 
             const action = document.createElement("td");
             const button = document.createElement("button");
             button.textContent = device.enabled ? "Remove" : "Expose";
-            button.disabled = device.quantities.length === 0;
+            button.disabled = !device.switchable && !device.quantities.length;
             button.onclick = async () => {
               button.disabled = true;
               await update(`/api/devices/${encodeURIComponent(device.id)}`, {

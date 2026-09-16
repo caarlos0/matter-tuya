@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { TuyaProperty } from "./api.js";
-import { measurementsOf, readMeasurements } from "./meters.js";
+import { capabilitiesOf, readMeasurements } from "./capabilities.js";
 
 function property(code: string, unit?: string, scale = 0): TuyaProperty {
-  return { code, typeSpec: { unit, scale } };
+  return { code, accessMode: "ro", typeSpec: { type: "value", unit, scale } };
 }
 
 // Thing model of an EKAZA current transformer meter.
@@ -28,7 +28,7 @@ const PLUG = [
 ];
 
 test("maps channel-suffixed meter properties to Matter milli-units", () => {
-  const measurements = measurementsOf(CT_METER);
+  const { measurements } = capabilitiesOf(CT_METER);
 
   assert.deepEqual(
     readMeasurements(measurements, [
@@ -47,7 +47,7 @@ test("maps channel-suffixed meter properties to Matter milli-units", () => {
 });
 
 test("maps plug properties and reports no cumulative energy", () => {
-  const measurements = measurementsOf(PLUG);
+  const { measurements } = capabilitiesOf(PLUG);
 
   assert.deepEqual(
     readMeasurements(measurements, [
@@ -62,22 +62,53 @@ test("maps plug properties and reports no cumulative energy", () => {
 
 test("ignores calibration coefficients", () => {
   assert.equal(
-    measurementsOf(PLUG).some(({ code }) => code.endsWith("_coe")),
+    capabilitiesOf(PLUG).measurements.some(({ code }) =>
+      code.endsWith("_coe"),
+    ),
     false,
   );
 });
 
 test("ignores devices without power or energy", () => {
-  assert.deepEqual(measurementsOf([property("cur_voltage", "V", 1)]), []);
+  assert.deepEqual(
+    capabilitiesOf([property("cur_voltage", "V", 1)]).measurements,
+    [],
+  );
 });
 
 test("ignores properties with an unknown unit", () => {
-  assert.deepEqual(measurementsOf([property("cur_power", "bogus", 1)]), []);
+  assert.deepEqual(
+    capabilitiesOf([property("cur_power", "bogus", 1)]).measurements,
+    [],
+  );
 });
 
 test("skips readings the device did not report", () => {
   assert.deepEqual(
-    readMeasurements(measurementsOf(PLUG), [{ code: "cur_power", value: 20 }]),
+    readMeasurements(capabilitiesOf(PLUG).measurements, [
+      { code: "cur_power", value: 20 },
+    ]),
     { power: 2000 },
+  );
+});
+
+test("finds the writable on/off property", () => {
+  assert.equal(
+    capabilitiesOf([
+      { code: "switch_1", accessMode: "rw", typeSpec: { type: "bool" } },
+      ...PLUG,
+    ]).switchCode,
+    "switch_1",
+  );
+});
+
+test("ignores read-only and non-boolean switch-like properties", () => {
+  assert.equal(
+    capabilitiesOf([
+      { code: "switch_inching", accessMode: "rw", typeSpec: { type: "string" } },
+      { code: "switch_1", accessMode: "ro", typeSpec: { type: "bool" } },
+      { code: "device_state1", accessMode: "ro", typeSpec: { type: "enum" } },
+    ]).switchCode,
+    undefined,
   );
 });

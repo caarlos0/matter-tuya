@@ -15,7 +15,9 @@ export type TuyaDevice = {
 /** One entry of a Tuya thing model, e.g. `cur_power`. */
 export type TuyaProperty = {
   code: string;
-  typeSpec: { unit?: string; scale?: number };
+  /** `ro`, `rw` or `wr`. Only writable properties accept commands. */
+  accessMode: string;
+  typeSpec: { type: string; unit?: string; scale?: number };
 };
 
 export type TuyaPropertyValue = { code: string; value: unknown };
@@ -76,6 +78,17 @@ export class TuyaApi {
     return services.flatMap((service) => service.properties);
   }
 
+  /** Writes one device property, e.g. `switch_1`. */
+  async setProperty(
+    deviceId: string,
+    code: string,
+    value: boolean,
+  ): Promise<void> {
+    await this.#post(`/v2.0/cloud/thing/${deviceId}/shadow/properties/issue`, {
+      properties: JSON.stringify({ [code]: value }),
+    });
+  }
+
   /** Reads the last reported value of every device property. */
   async values(deviceId: string): Promise<TuyaPropertyValue[]> {
     const { properties } = await this.#get<{
@@ -88,19 +101,30 @@ export class TuyaApi {
     path: string,
     query?: Record<string, string | number>,
   ): Promise<T> {
+    return this.#request("GET", signedUrl(path, query));
+  }
+
+  async #post<T>(path: string, body: unknown): Promise<T> {
+    return this.#request("POST", path, JSON.stringify(body));
+  }
+
+  async #request<T>(
+    method: "GET" | "POST",
+    path: string,
+    payload = "",
+  ): Promise<T> {
     await this.#refreshTokenIfNeeded(path);
 
-    const signedPath = signedUrl(path, query);
     const timestamp = Date.now();
     const nonce = randomUUID();
     // Token management calls are signed without a token, even once we have one.
     const token = isTokenApi(path) ? "" : (this.#token?.accessToken ?? "");
 
     const stringToSign = [
-      "GET",
-      createHash("sha256").update("").digest("hex"),
+      method,
+      createHash("sha256").update(payload).digest("hex"),
       `client_id:${this.accessId}\n`,
-      signedPath,
+      path,
     ].join("\n");
 
     const sign = createHmac("sha256", this.accessKey)
@@ -108,7 +132,8 @@ export class TuyaApi {
       .digest("hex")
       .toUpperCase();
 
-    const response = await fetch(new URL(signedPath, this.endpoint), {
+    const response = await fetch(new URL(path, this.endpoint), {
+      method,
       headers: {
         client_id: this.accessId,
         access_token: this.#token?.accessToken ?? "",
@@ -118,7 +143,9 @@ export class TuyaApi {
         sign,
         sign_method: "HMAC-SHA256",
         lang: "en",
+        "Content-Type": "application/json",
       },
+      body: payload || undefined,
     });
 
     if (!response.ok) {

@@ -4,10 +4,10 @@
   "description": "Expose Tuya devices as Matter devices",
   "main": "dist/index.js",
   "scripts": {
-    "test": "tsc && node --test dist/",
-    "build": "tsc",
+    "test": "npm run build && node --test dist/",
+    "build": "rm -rf dist && tsc",
     "start": "node dist/index.js",
-    "dev": "tsc && node dist/index.js"
+    "dev": "npm run build && node dist/index.js"
   },
   "keywords": [],
   "author": "",

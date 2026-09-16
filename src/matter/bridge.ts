@@ -2,8 +2,11 @@ import { Endpoint, ServerNode, VendorId } from "@matter/main";
 import { AggregatorEndpoint } from "@matter/main/endpoints/aggregator";
 
 import type { Config } from "../config.js";
-import type { Readings } from "../tuya/meters.js";
-import { MeterEndpointHandle, type MeterInfo } from "./meter-endpoint.js";
+import {
+  DeviceEndpoint,
+  type DeviceInfo,
+  type DeviceState,
+} from "./device-endpoint.js";
 
 // Test vendor id reserved by the CSA for development.
 const VENDOR_ID = VendorId(0xfff1);
@@ -12,7 +15,7 @@ const PRODUCT_ID = 0x8000;
 export class Bridge {
   #node?: ServerNode;
   #aggregator?: Endpoint<typeof AggregatorEndpoint>;
-  readonly #meters = new Map<string, MeterEndpointHandle>();
+  readonly #devices = new Map<string, DeviceEndpoint>();
 
   constructor(private readonly config: Config["matter"]) {}
 
@@ -46,30 +49,29 @@ export class Bridge {
     await this.#node?.close();
   }
 
-  async addMeter(info: MeterInfo): Promise<void> {
+  async addDevice(
+    info: DeviceInfo,
+    setSwitch?: (on: boolean) => Promise<void>,
+  ): Promise<void> {
     const aggregator = this.#aggregator;
     if (!aggregator) {
       throw new Error("bridge not started");
     }
-    const meter = new MeterEndpointHandle(info);
-    await aggregator.add(meter.endpoint);
-    this.#meters.set(info.id, meter);
+    const device = new DeviceEndpoint(info, setSwitch);
+    await aggregator.add(device.root);
+    this.#devices.set(info.id, device);
   }
 
-  async removeMeter(deviceId: string): Promise<void> {
-    const meter = this.#meters.get(deviceId);
-    if (meter) {
-      this.#meters.delete(deviceId);
-      await meter.endpoint.delete();
+  async removeDevice(deviceId: string): Promise<void> {
+    const device = this.#devices.get(deviceId);
+    if (device) {
+      this.#devices.delete(deviceId);
+      await device.root.delete();
     }
   }
 
-  async updateMeter(
-    deviceId: string,
-    reachable: boolean,
-    readings: Readings,
-  ): Promise<void> {
-    await this.#meters.get(deviceId)?.update(reachable, readings);
+  async updateDevice(deviceId: string, state: DeviceState): Promise<void> {
+    await this.#devices.get(deviceId)?.update(state);
   }
 
   /** Commissioning details, or undefined once the bridge is commissioned. */
