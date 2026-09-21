@@ -55,7 +55,7 @@ export class Devices {
     await this.refresh();
     this.#enabled = await loadEnabled(this.stateFile);
     for (const id of this.#enabled) {
-      await this.#addToBridge(id);
+      await this.#addToBridge(id, true);
     }
   }
 
@@ -138,13 +138,16 @@ export class Devices {
     }
   }
 
-  async #addToBridge(id: string): Promise<void> {
+  async #addToBridge(id: string, restoring = false): Promise<void> {
     const entry = this.#entries.get(id);
     if (!entry || !exposable(entry)) {
       return;
     }
     const { measurements, switchCode } = entry.capabilities;
-    await this.bridge.addDevice(
+    const expose = restoring
+      ? this.bridge.restoreDevice.bind(this.bridge)
+      : this.bridge.addDevice.bind(this.bridge);
+    await expose(
       {
         id,
         name: entry.device.name,

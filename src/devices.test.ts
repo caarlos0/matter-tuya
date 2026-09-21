@@ -60,13 +60,21 @@ function fakeTuya(devices: Enrolled[], offline: string[] = []) {
 function fakeBridge() {
   const bridged = new Map<string, Switcher | undefined>();
   const updates: unknown[] = [];
+  const announced: string[] = [];
   const bridge = {
-    addDevice: async ({ id }: { id: string }, setSwitch?: Switcher) =>
+    addDevice: async ({ id }: { id: string }, setSwitch?: Switcher) => {
+      announced.push(`add ${id}`);
+      bridged.set(id, setSwitch);
+    },
+    restoreDevice: async ({ id }: { id: string }, setSwitch?: Switcher) =>
       void bridged.set(id, setSwitch),
-    removeDevice: async (id: string) => void bridged.delete(id),
+    removeDevice: async (id: string) => {
+      announced.push(`remove ${id}`);
+      bridged.delete(id);
+    },
     updateDevice: async (_id: string, state: unknown) => void updates.push(state),
   } as unknown as Bridge;
-  return { bridge, bridged, updates };
+  return { bridge, bridged, updates, announced };
 }
 
 async function stateFile(): Promise<string> {
@@ -216,4 +224,37 @@ test("forces a search when the user asks to refresh", async () => {
   // Startup and the user both search at once. Only a failed read waits, so
   // that one unreachable device cannot make every poll search the subnet.
   assert.deepEqual(forced, [true, true]);
+});
+
+test("announces a device the user exposes, but not one it merely restores", async () => {
+  const file = await stateFile();
+  const enrolled = [device("a", "Plug", [SWITCH])];
+
+  const first = fakeBridge();
+  const devices = new Devices(fakeTuya(enrolled).tuya, first.bridge, file);
+  await devices.load();
+  await devices.setEnabled("a", true);
+  assert.deepEqual(first.announced, ["add a"]);
+
+  // A restart rebuilds the same endpoints, so a controller has nothing to
+  // learn and must not be told the bridge changed.
+  const second = fakeBridge();
+  await new Devices(fakeTuya(enrolled).tuya, second.bridge, file).load();
+  assert.deepEqual([...second.bridged.keys()], ["a"]);
+  assert.deepEqual(second.announced, []);
+});
+
+test("announces a device the user removes", async () => {
+  const { bridge, announced } = fakeBridge();
+  const devices = new Devices(
+    fakeTuya([device("a", "Plug", [SWITCH])]).tuya,
+    bridge,
+    await stateFile(),
+  );
+
+  await devices.load();
+  await devices.setEnabled("a", true);
+  await devices.setEnabled("a", false);
+
+  assert.deepEqual(announced, ["add a", "remove a"]);
 });

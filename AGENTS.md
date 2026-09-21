@@ -112,6 +112,12 @@ becomes a flat bridged `ElectricalSensor`. Both carry
 An on/off command writes to Tuya first and only then updates the Matter
 attribute, so the two never disagree after a failure.
 
+**Adding or removing an endpoint must raise `BasicInformation.configurationVersion`,**
+through `BasicInformationServer.increaseConfigurationVersion`. That attribute is
+how a controller learns the bridge changed. Without it a newly exposed device
+never appears in Apple Home. Restoring the same endpoints after a restart is
+not a change, so it must not raise the version.
+
 ## Conventions
 
 - Every setting this project owns is prefixed `TUYA_`. Bare names collide with

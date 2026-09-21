@@ -1,4 +1,5 @@
 import { Endpoint, ServerNode, VendorId } from "@matter/main";
+import { BasicInformationServer } from "@matter/main/behaviors/basic-information";
 import { AggregatorEndpoint } from "@matter/main/endpoints/aggregator";
 
 import type { Config } from "../config.js";
@@ -49,25 +50,68 @@ export class Bridge {
     await this.#node?.close();
   }
 
+  /** Exposes a device the user has just chosen, and tells the controllers. */
   async addDevice(
     info: DeviceInfo,
     setSwitch?: (on: boolean) => Promise<void>,
   ): Promise<void> {
-    const aggregator = this.#aggregator;
-    if (!aggregator) {
-      throw new Error("bridge not started");
-    }
-    const device = new DeviceEndpoint(info, setSwitch);
-    await aggregator.add(device.root);
-    this.#devices.set(info.id, device);
+    await this.#add(info, setSwitch, true);
+  }
+
+  /**
+   * Rebuilds a device that was already exposed before a restart.
+   *
+   * Nothing has changed for a controller, so nothing is announced: the bridge
+   * carries exactly the endpoints it carried before.
+   */
+  async restoreDevice(
+    info: DeviceInfo,
+    setSwitch?: (on: boolean) => Promise<void>,
+  ): Promise<void> {
+    await this.#add(info, setSwitch, false);
   }
 
   async removeDevice(deviceId: string): Promise<void> {
     const device = this.#devices.get(deviceId);
     if (device) {
       this.#devices.delete(deviceId);
-      await device.root.delete();
+      await this.#reconfigure(() => device.root.delete());
     }
+  }
+
+  async #add(
+    info: DeviceInfo,
+    setSwitch: ((on: boolean) => Promise<void>) | undefined,
+    announce: boolean,
+  ): Promise<void> {
+    const aggregator = this.#aggregator;
+    if (!aggregator) {
+      throw new Error("bridge not started");
+    }
+    const device = new DeviceEndpoint(info, setSwitch);
+    const add = async () => {
+      await aggregator.add(device.root);
+    };
+    await (announce ? this.#reconfigure(add) : add());
+    this.#devices.set(info.id, device);
+  }
+
+  /**
+   * Changes which endpoints the bridge carries, and says so.
+   *
+   * A controller learns that a bridge changed from its configuration version.
+   * Adding or removing an endpoint without raising it leaves the new device
+   * invisible until the controller happens to look again, which is why a
+   * device chosen on the page never appeared in Apple Home.
+   */
+  async #reconfigure(change: () => Promise<void>): Promise<void> {
+    const node = this.#node;
+    if (!node) {
+      throw new Error("bridge not started");
+    }
+    await node.act((agent) =>
+      agent.get(BasicInformationServer).increaseConfigurationVersion(change),
+    );
   }
 
   async updateDevice(deviceId: string, state: DeviceState): Promise<void> {

@@ -67,8 +67,8 @@ never asks again.
 
 The page lists every device in the linked Tuya account.
 
-- **Expose** adds the device to the Matter bridge. The controller sees it at
-  once; no restart is needed.
+- **Expose** adds the device to the Matter bridge and tells the controllers the
+  bridge changed, so the device appears without a restart.
 - **Remove** takes it off the bridge again.
 - A device with neither a switch nor metering cannot be exposed, so its button
   is disabled.
