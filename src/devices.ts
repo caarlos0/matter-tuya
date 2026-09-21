@@ -1,5 +1,4 @@
 import type { Bridge } from "./matter/bridge.js";
-import type { TuyaApi, TuyaDevice } from "./tuya/api.js";
 import {
   capabilitiesOf,
   readMeasurements,
@@ -7,12 +6,15 @@ import {
   type Quantity,
   type Readings,
 } from "./tuya/capabilities.js";
+import type { Enrolled } from "./tuya/enrollment.js";
+import type { TuyaLocal } from "./tuya/local.js";
 import { loadEnabled, saveEnabled } from "./state.js";
 
 export type DeviceView = {
   id: string;
   name: string;
   productName: string;
+  /** Whether the device answered on the local network. */
   online: boolean;
   /** Empty when the device reports no electricity. */
   quantities: Quantity[];
@@ -23,7 +25,7 @@ export type DeviceView = {
 };
 
 type Entry = {
-  device: TuyaDevice;
+  device: Enrolled;
   capabilities: Capabilities;
   readings: Readings;
   on?: boolean;
@@ -31,16 +33,24 @@ type Entry = {
 
 /** Tracks the Tuya devices and which of them are bridged to Matter. */
 export class Devices {
-  #entries = new Map<string, Entry>();
+  readonly #entries = new Map<string, Entry>();
   #enabled = new Set<string>();
 
   constructor(
-    private readonly api: TuyaApi,
+    private readonly tuya: TuyaLocal,
     private readonly bridge: Bridge,
     private readonly stateFile: string,
-  ) {}
+  ) {
+    for (const device of tuya.devices) {
+      this.#entries.set(device.id, {
+        device,
+        capabilities: capabilitiesOf(device.properties),
+        readings: {},
+      });
+    }
+  }
 
-  /** Loads the device list and bridges the devices enabled in an earlier run. */
+  /** Searches the subnet, then bridges the devices enabled in an earlier run. */
   async load(): Promise<void> {
     await this.refresh();
     this.#enabled = await loadEnabled(this.stateFile);
@@ -49,24 +59,9 @@ export class Devices {
     }
   }
 
-  /** Reloads the device list and the thing model of every new device. */
+  /** Searches the subnet again, to find devices that moved or came back. */
   async refresh(): Promise<void> {
-    const entries = new Map<string, Entry>();
-
-    for (const device of await this.api.devices()) {
-      const known = this.#entries.get(device.id);
-      entries.set(device.id, {
-        device,
-        capabilities:
-          known?.capabilities ??
-          capabilitiesOf(await this.api.properties(device.id)),
-        readings: known?.readings ?? {},
-        on: known?.on,
-      });
-    }
-
-    this.#entries = entries;
-    await this.#dropMissing();
+    await this.tuya.discover(true);
   }
 
   list(): DeviceView[] {
@@ -74,8 +69,8 @@ export class Devices {
       .map(({ device, capabilities, readings, on }) => ({
         id: device.id,
         name: device.name,
-        productName: productName(device),
-        online: device.online,
+        productName: device.productName,
+        online: this.tuya.reachable(device.id),
         quantities: capabilities.measurements.map(({ quantity }) => quantity),
         switchable: capabilities.switchCode !== undefined,
         enabled: this.#enabled.has(device.id),
@@ -126,7 +121,7 @@ export class Devices {
       return;
     }
     try {
-      const values = await this.api.values(id);
+      const values = await this.tuya.values(id);
       const { measurements, switchCode } = entry.capabilities;
       entry.readings = readMeasurements(measurements, values);
       entry.on = switchCode
@@ -143,19 +138,6 @@ export class Devices {
     }
   }
 
-  /** Unbridges devices that disappeared from the Tuya account. */
-  async #dropMissing(): Promise<void> {
-    const missing = [...this.#enabled].filter((id) => !this.#entries.has(id));
-    if (missing.length === 0) {
-      return;
-    }
-    for (const id of missing) {
-      this.#enabled.delete(id);
-      await this.bridge.removeDevice(id);
-    }
-    await saveEnabled(this.stateFile, this.#enabled);
-  }
-
   async #addToBridge(id: string): Promise<void> {
     const entry = this.#entries.get(id);
     if (!entry || !exposable(entry)) {
@@ -166,22 +148,18 @@ export class Devices {
       {
         id,
         name: entry.device.name,
-        productName: productName(entry.device),
-        reachable: entry.device.online,
+        productName: entry.device.productName,
+        reachable: this.tuya.reachable(id),
         measurements,
       },
       switchCode === undefined
         ? undefined
         : async (on) => {
-            await this.api.setProperty(id, switchCode, on);
+            await this.tuya.setProperty(id, switchCode, on);
             entry.on = on;
           },
     );
   }
-}
-
-function productName(device: TuyaDevice): string {
-  return device.product_name ?? device.category;
 }
 
 function exposable({ capabilities }: Entry): boolean {

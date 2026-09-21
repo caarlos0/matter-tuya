@@ -2,11 +2,14 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 export type Config = {
-  endpoint: string;
-  accessId: string;
-  accessKey: string;
+  /** The subnet the devices live on, e.g. 192.168.1.0/24. */
+  subnet: string;
+  /** Cloud credentials, needed only until the enrolment is stored. */
+  cloud: { endpoint: string; accessId: string; accessKey: string };
   pollIntervalMs: number;
   stateFile: string;
+  enrollmentFile: string;
+  addressFile: string;
   webPort: number;
   matter: {
     passcode: number;
@@ -71,18 +74,25 @@ function optionalNumber(name: string, fallback: number): number {
  */
 export function loadConfig(): Config {
   const countryCode = optionalNumber("TUYA_COUNTRY_CODE", 1);
+  const storage =
+    process.env.MATTER_STORAGE_PATH?.trim() || join(homedir(), ".matter");
 
   return {
-    endpoint: process.env.TUYA_ENDPOINT?.trim() || defaultEndpoint(countryCode),
-    accessId: required("TUYA_ACCESS_ID"),
-    accessKey: required("TUYA_ACCESS_KEY"),
+    subnet: required("TUYA_SUBNET"),
+    // Read lazily: a bridge with a stored enrolment never needs these.
+    cloud: {
+      endpoint: process.env.TUYA_ENDPOINT?.trim() || defaultEndpoint(countryCode),
+      accessId: process.env.TUYA_ACCESS_ID?.trim() ?? "",
+      accessKey: process.env.TUYA_ACCESS_KEY?.trim() ?? "",
+    },
     pollIntervalMs: optionalNumber("TUYA_POLL_INTERVAL", 30) * 1000,
     stateFile:
       process.env.TUYA_STATE_FILE?.trim() ||
-      join(
-        process.env.MATTER_STORAGE_PATH?.trim() || join(homedir(), ".matter"),
-        "tuya-matter-devices.json",
-      ),
+      join(storage, "tuya-matter-devices.json"),
+    enrollmentFile:
+      process.env.TUYA_ENROLLMENT_FILE?.trim() ||
+      join(storage, "tuya-matter-enrollment.json"),
+    addressFile: join(storage, "tuya-matter-addresses.json"),
     webPort: optionalNumber("TUYA_WEB_PORT", 8080),
     matter: {
       passcode: optionalNumber("MATTER_PASSCODE", 20202021),

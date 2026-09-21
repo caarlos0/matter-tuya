@@ -1,7 +1,8 @@
 # AGENTS.md
 
-Bridge that exposes Tuya cloud devices as Matter devices on the local network.
-A web page lists the account and the user picks which devices to expose.
+Bridge that exposes Tuya devices as Matter devices. Every reading and every
+command goes to the device on the local network. A web page lists the account
+and the user picks which devices to expose.
 
 ## Safety
 
@@ -14,8 +15,9 @@ The bridge locks its Matter storage. Always override it when you run a test
 instance, or you take over the paired production node:
 
 ```sh
-TUYA_WEB_PORT=8099 MATTER_PORT=5599 \
-  MATTER_STORAGE_PATH=/tmp/tm-test TUYA_STATE_FILE=/tmp/tm-test.json \
+TUYA_WEB_PORT=8099 MATTER_PORT=5599 MATTER_STORAGE_PATH=/tmp/tm-test \
+  TUYA_STATE_FILE=/tmp/tm-test/devices.json \
+  TUYA_ENROLLMENT_FILE=/tmp/tm-test/enrollment.json \
   bun src/index.ts
 ```
 
@@ -42,12 +44,20 @@ Bun loads `.env` itself. There is no Node, no npm, and no bundler step.
 | `src/state.ts`                | Reads and writes the exposed-device list.            |
 | `src/web.ts`                  | HTTP API and page serving.                           |
 | `src/page.ts`                 | The web page.                                        |
-| `src/tuya/api.ts`             | Tuya cloud client and request signing.               |
+| `src/addresses.ts`            | Remembers where each device last answered.           |
+| `src/tuya/api.ts`             | Tuya cloud client. Enrolment only; it cannot read or write a device. |
+| `src/tuya/enrollment.ts`      | Asks the cloud once for keys and thing models, and stores them. |
+| `src/tuya/discovery.ts`       | Searches the subnet and proves which device is where. |
+| `src/tuya/protocol.ts`        | The Tuya wire protocol on port 6668.                 |
+| `src/tuya/local.ts`           | Reads and writes devices on the local network.       |
 | `src/tuya/capabilities.ts`    | Reads a thing model into measurements and a switch.  |
 | `src/matter/bridge.ts`        | Matter server node and aggregator.                   |
 | `src/matter/device-endpoint.ts` | Maps a Tuya device onto Matter endpoints.          |
 
 ## Tuya cloud
+
+The cloud is asked once, to enrol. It can neither read nor write device state,
+and those calls are absent from the client on purpose.
 
 Authenticate as the cloud project with `/v1.0/token?grant_type=1`. The app
 account login (`/v1.0/iot-01/associated-users/actions/authorized-login`) is
@@ -55,20 +65,40 @@ rejected with `clientId invalid`, and the v1.0 device APIs answer `not support
 this device`. Use only these:
 
 - `/v1.0/iot-01/associated-users/devices` — device list, cursor paged with
-  `last_row_key`.
-- `/v2.0/cloud/thing/{id}/model` — thing model, with the unit and scale of each
-  property.
-- `/v2.0/cloud/thing/{id}/shadow/properties` — last reported values.
-- `/v2.0/cloud/thing/{id}/shadow/properties/issue` — write a property.
+  `last_row_key`. Each entry carries `local_key`.
+- `/v2.0/cloud/thing/{id}/model` — thing model. `abilityId` is the data point
+  number, and the unit and scale of each property are here.
 
 Only `openapi.tuyaus.com` answers; the other data centers are suspended for this
 project.
 
-A raw value converts as `value / 10 ** scale`, then the unit converts to the
-Matter milli-unit. Codes may carry a channel suffix, such as `cur_power1`, so
-match the code with the digits stripped. Match codes exactly: `power_coe` is a
-calibration coefficient, `switch_inching` configures a momentary switch, and
-`add_ele` is the increment since the last report, not a cumulative total.
+A local key cannot be derived, and the data point map is published nowhere
+else. That is the whole reason the cloud is needed. A key changes only when a
+device is re-paired.
+
+## Tuya on the local network
+
+Devices listen on TCP 6668. The wire format follows tinytuya.
+
+- Versions differ per device. This house has 3.4 and 3.5 on the same subnet,
+  so detect, never assume.
+- 3.5 frames with `0x6699` and AES-128-GCM. The older versions frame with
+  `0x55AA` and AES-128-ECB. 3.4 and 3.5 negotiate a session key first.
+- A request and a response are not the same shape. Only a response carries a
+  4 byte return code before the body.
+- **Every command except a plain read needs a 15 byte version header**: the
+  version string then twelve zero bytes. Without it a write is answered
+  `data format error` and nothing happens.
+- A write is `CONTROL_NEW` (`0x0d`) on 3.4 and 3.5, `CONTROL` (`0x07`) below.
+  The payload is `{"protocol":5,"t":<int>,"data":{"dps":{...}}}`. A 3.4 device
+  acknowledges with an empty frame, a 3.5 device with a status push.
+- A wrong key is not refused, it is ignored: the frame is dropped and the
+  guess costs the whole timeout. So the version cannot be probed without the
+  right key, and searching is done in parallel, one version at a time across
+  every address.
+
+Broadcast discovery on UDP 6666/6667 does not cross a VLAN, and IoT devices
+usually sit on one of their own, so the subnet is searched over TCP instead.
 
 ## Matter
 
@@ -91,6 +121,8 @@ attribute, so the two never disagree after a failure.
 - The released binary carries no files beside it, so anything the page needs
   must live in the source.
 - Tests use the `node:test` API and run under `bun test`.
+- The cloud client must stay unable to read or write a device. Keeping those
+  calls absent is what stops a reading ever depending on the cloud.
 - Releases are built by GoReleaser Pro with the Bun builder, for `linux-x64` and
   `linux-arm64`. Its output directory is `dist/`.
 
@@ -117,5 +149,4 @@ To check the page, screenshot it rather than guessing:
 ## Not supported yet
 
 Lights, covers and other controls. Multi-channel devices expose their first
-channel only. Updates are polled; the Tuya push stream is unused. The web page
-has no authentication.
+channel only. Updates are polled. The web page has no authentication.

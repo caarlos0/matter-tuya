@@ -1,4 +1,7 @@
-import type { TuyaProperty, TuyaPropertyValue } from "./api.js";
+import type { TuyaProperty } from "./api.js";
+
+/** One reported property value, named as the thing model names it. */
+export type TuyaPropertyValue = { code: string; value: unknown };
 
 /**
  * Matter reports electricity in milli-units: mW, mV, mA and mWh. Every Tuya

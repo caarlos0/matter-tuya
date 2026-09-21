@@ -8,8 +8,9 @@ export type TuyaDevice = {
   id: string;
   name: string;
   category: string;
-  online: boolean;
   product_name?: string;
+  /** The 16 byte key the device demands on the local network. */
+  local_key?: string;
 };
 
 /** One entry of a Tuya thing model, e.g. `cur_power`. */
@@ -17,10 +18,10 @@ export type TuyaProperty = {
   code: string;
   /** `ro`, `rw` or `wr`. Only writable properties accept commands. */
   accessMode: string;
+  /** The data point number this property carries on the wire. */
+  abilityId?: number;
   typeSpec: { type: string; unit?: string; scale?: number };
 };
-
-export type TuyaPropertyValue = { code: string; value: unknown };
 
 type Token = {
   accessToken: string;
@@ -31,6 +32,14 @@ type Token = {
 const TOKEN_REFRESH_MARGIN_MS = 60_000;
 const DEVICE_PAGE_SIZE = 100;
 
+/**
+ * The Tuya cloud, used only to enrol devices.
+ *
+ * A local key cannot be derived and a data point map is published nowhere
+ * else, so the cloud is asked once. It can neither read nor write device
+ * state: those calls are absent on purpose, so no reading can ever depend on
+ * a cloud that is slow, rate limited, or down.
+ */
 export class TuyaApi {
   #token?: Token;
 
@@ -78,25 +87,6 @@ export class TuyaApi {
     return services.flatMap((service) => service.properties);
   }
 
-  /** Writes one device property, e.g. `switch_1`. */
-  async setProperty(
-    deviceId: string,
-    code: string,
-    value: boolean,
-  ): Promise<void> {
-    await this.#post(`/v2.0/cloud/thing/${deviceId}/shadow/properties/issue`, {
-      properties: JSON.stringify({ [code]: value }),
-    });
-  }
-
-  /** Reads the last reported value of every device property. */
-  async values(deviceId: string): Promise<TuyaPropertyValue[]> {
-    const { properties } = await this.#get<{
-      properties: TuyaPropertyValue[];
-    }>(`/v2.0/cloud/thing/${deviceId}/shadow/properties`);
-    return properties;
-  }
-
   async #get<T>(
     path: string,
     query?: Record<string, string | number>,
@@ -104,15 +94,7 @@ export class TuyaApi {
     return this.#request("GET", signedUrl(path, query));
   }
 
-  async #post<T>(path: string, body: unknown): Promise<T> {
-    return this.#request("POST", path, JSON.stringify(body));
-  }
-
-  async #request<T>(
-    method: "GET" | "POST",
-    path: string,
-    payload = "",
-  ): Promise<T> {
+  async #request<T>(method: "GET", path: string, payload = ""): Promise<T> {
     await this.#refreshTokenIfNeeded(path);
 
     const timestamp = Date.now();
