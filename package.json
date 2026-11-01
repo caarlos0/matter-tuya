@@ -15,10 +15,10 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@matter/main": "^0.17.9"
+    "@matter/main": "^0.18.0"
   },
   "devDependencies": {
-    "@types/node": "^22.20.3",
+    "@types/node": "^26.6.6",
     "typescript": "^7.0.2"
   }
 }
