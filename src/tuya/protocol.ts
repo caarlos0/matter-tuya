@@ -235,8 +235,11 @@ export class LocalConnection {
       this.#fail(new Error("TCP connection closed")),
     );
     this.#socket.on("data", (chunk) => {
-      this.#buffer = Buffer.concat([this.#buffer, chunk]);
       try {
+        if (typeof chunk === "string") {
+          throw new Error("unexpected encoded TCP data");
+        }
+        this.#buffer = Buffer.concat([this.#buffer, chunk]);
         while (this.#buffer.length >= 18) {
           const prefix = this.#buffer.readUInt32BE(0);
           if (prefix !== 0x55aa && prefix !== 0x6699) {
