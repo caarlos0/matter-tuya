@@ -18,7 +18,7 @@ import { createConnection, type Socket } from "node:net";
 
 export type Version = "3.1" | "3.3" | "3.4" | "3.5";
 
-export const VERSIONS: Version[] = ["3.5", "3.4", "3.3", "3.1"];
+export const VERSIONS: Version[] = ["3.5", "3.4", "3.3"];
 
 type Frame = { sequence: number; command: number; payload: Buffer };
 
@@ -108,6 +108,9 @@ export function decodeFrame(
   version: Version,
   key: Buffer,
 ): Frame {
+  if (version === "3.1") {
+    throw new Error("unauthenticated Tuya 3.1 responses are not supported");
+  }
   if (version === "3.5") {
     if (
       packet.length < 54 ||
@@ -173,11 +176,6 @@ export function decodeFrame(
         payload = payload.subarray(15);
       }
       payload = decryptEcb(payload, key);
-    } else if (payload.subarray(0, 3).toString() === "3.1") {
-      payload = decryptEcb(
-        Buffer.from(payload.subarray(19).toString(), "base64"),
-        key,
-      );
     }
   }
   return {

@@ -119,9 +119,10 @@ Once, to enrol:
 
 Then, on your own network only:
 
-4. Searches `TUYA_SUBNET` for port 6668 and proves which device is at each
-   address by completing a handshake, which only the device holding the key
-   can do. Addresses are remembered, so a restart is quick, but never trusted.
+4. Searches `TUYA_SUBNET` for port 6668 and checks the local key through an
+   encrypted 3.3 reply or a 3.4/3.5 session handshake. Addresses are remembered,
+   so a restart is quick, but never trusted. Unauthenticated protocol 3.1 is
+   not discovered, and old 3.1 address hints are ignored.
 5. Reads the data points of the exposed devices and converts them into the
    Matter milli-units (mW, mV, mA, mWh).
 6. Sends a Matter on/off command to the device. Matter reports the new state
@@ -169,6 +170,9 @@ of exposed devices survives.
 - One endpoint per device. Multi-channel meters and multi-gang switches expose
   their first channel only.
 - Polling only. The devices are read on a timer, not pushed.
+- Tuya protocol 3.1 is not supported because its plaintext replies cannot prove
+  device identity. Encrypted 3.3 remains supported without modern session
+  authentication; prefer devices using 3.4 or 3.5.
 - Broadcast discovery is not used, because it does not cross a VLAN. The subnet
   is searched instead, so the bridge only needs to be able to route to it.
 

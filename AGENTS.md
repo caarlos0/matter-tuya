@@ -82,6 +82,8 @@ Devices listen on TCP 6668. The wire format follows tinytuya.
 
 - Versions differ per device. This house has 3.4 and 3.5 on the same subnet,
   so detect, never assume.
+- Discover only 3.3, 3.4 and 3.5. Reject 3.1 responses and cached 3.1 hints:
+  plaintext with CRC32 cannot prove which device holds the key.
 - 3.5 frames with `0x6699` and AES-128-GCM. The older versions frame with
   `0x55AA` and AES-128-ECB. 3.4 and 3.5 negotiate a session key first.
 - A request and a response are not the same shape. Only a response carries a

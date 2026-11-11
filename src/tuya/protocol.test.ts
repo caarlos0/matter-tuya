@@ -68,6 +68,20 @@ test("computes CRC-32", () => {
   assert.equal(crc32(Buffer.from("123456789")), 0xcbf43926);
 });
 
+test("refuses legacy responses that cannot prove possession of a key", () => {
+  const body = Buffer.concat([
+    Buffer.alloc(4),
+    Buffer.from(JSON.stringify({ dps: { "1": true } })),
+  ]);
+  const frame = encodeFrame(1, 0x0a, body, "3.1", KEY);
+  for (const key of [KEY, Buffer.from("fedcba9876543210")]) {
+    assert.throws(
+      () => decodeFrame(frame, "3.1", key),
+      /unauthenticated Tuya 3.1/,
+    );
+  }
+});
+
 for (const version of ["3.3", "3.4", "3.5"] as Version[]) {
   test(`reads a ${version} response`, () => {
     const body = Buffer.from(JSON.stringify({ dps: { "1": true } }));
