@@ -87,8 +87,8 @@ export async function scan(
 /**
  * Asks whether one device answers at one address, in one version.
  *
- * Only the device holding the key completes the handshake, so a wrong guess
- * is refused rather than believed. A refusal is silent, though: a frame
+ * A 3.4/3.5 handshake or encrypted 3.3 query reply checks the key; plaintext
+ * 3.1 replies cannot identify a device. A refusal is silent, though: a frame
  * sealed with the wrong key is dropped, not answered, so every wrong guess
  * costs the timeout. That is why the timeout here is short and why the
  * guessing is done in parallel.
@@ -141,7 +141,11 @@ export async function locate(
   await Promise.all(
     devices.map(async (device) => {
       const address = known.get(device.id);
-      if (address && (await identify(address.host, device, address.version))) {
+      if (
+        address &&
+        VERSIONS.includes(address.version) &&
+        (await identify(address.host, device, address.version))
+      ) {
         found.set(device.id, address);
       }
     }),
@@ -157,7 +161,9 @@ export async function locate(
   );
 
   // A version already proven on this subnet is the one to try first.
-  const seen = [...known.values()].map(({ version }) => version);
+  const seen = [...known.values()]
+    .map(({ version }) => version)
+    .filter((version) => VERSIONS.includes(version));
   const order = [...new Set([...seen, ...VERSIONS])];
 
   for (const version of order) {
