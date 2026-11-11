@@ -95,7 +95,8 @@ export function loadConfig(): Config {
     addressFile: join(storage, "tuya-matter-addresses.json"),
     webPort: optionalNumber("TUYA_WEB_PORT", 8080),
     matter: {
-      passcode: optionalNumber("MATTER_PASSCODE", 20202021),
+      // Matter generates a random passcode when its default sentinel is used.
+      passcode: optionalNumber("MATTER_PASSCODE", -1),
       discriminator: optionalNumber("MATTER_DISCRIMINATOR", 3840),
       port: optionalNumber("MATTER_PORT", 5540),
     },
