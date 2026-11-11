@@ -42,7 +42,7 @@ Bun loads `.env` itself. There is no Node, no npm, and no bundler step.
 | `src/config.ts`               | Environment settings and the data center default.    |
 | `src/devices.ts`              | Registry: which devices exist and which are exposed. |
 | `src/state.ts`                | Reads and writes the exposed-device list.            |
-| `src/web.ts`                  | HTTP API and page serving.                           |
+| `src/web.ts`                  | Loopback HTTP API and page serving; local Host/Origin checks. |
 | `src/page.ts`                 | The web page.                                        |
 | `src/addresses.ts`            | Remembers where each device last answered.           |
 | `src/tuya/api.ts`             | Tuya cloud client. Enrolment only; it cannot read or write a device. |
@@ -102,6 +102,9 @@ usually sit on one of their own, so the subnet is searched over TCP instead.
 
 ## Matter
 
+With no `MATTER_PASSCODE`, the `-1` sentinel lets Matter generate a random
+commissioning passcode. Do not restore the former shared sample default.
+
 Matter reports electricity in milli-units: mW, mV, mA and mWh.
 
 A device with a writable boolean switch becomes an `OnOffPlugInUnit`, with its
@@ -155,4 +158,5 @@ To check the page, screenshot it rather than guessing:
 ## Not supported yet
 
 Lights, covers and other controls. Multi-channel devices expose their first
-channel only. Updates are polled. The web page has no authentication.
+channel only. Updates are polled. The web page trusts local processes only and
+must not be exposed through a network proxy.

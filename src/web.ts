@@ -1,6 +1,7 @@
 import {
   createServer,
   type IncomingMessage,
+  type Server,
   type ServerResponse,
 } from "node:http";
 
@@ -8,27 +9,43 @@ import type { Devices } from "./devices.js";
 import type { Bridge } from "./matter/bridge.js";
 import { PAGE } from "./page.js";
 
+type WebDevices = Pick<Devices, "list" | "refresh" | "setEnabled">;
+type WebBridge = Pick<Bridge, "commissioning">;
+
 /** Serves the device list and the enable/disable controls. */
 export function startWeb(
   port: number,
-  devices: Devices,
-  bridge: Bridge,
-): Promise<void> {
+  devices: WebDevices,
+  bridge: WebBridge,
+): Promise<Server> {
   const server = createServer((request, response) => {
     handle(request, response, devices, bridge).catch((error: unknown) => {
       send(response, 500, { error: message(error) });
     });
   });
 
-  return new Promise((resolve) => server.listen(port, resolve));
+  return new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, "127.0.0.1", () => resolve(server));
+  });
 }
 
 async function handle(
   request: IncomingMessage,
   response: ServerResponse,
-  devices: Devices,
-  bridge: Bridge,
+  devices: WebDevices,
+  bridge: WebBridge,
 ): Promise<void> {
+  if (
+    !isLocalRequest(
+      request.headers.host,
+      request.headers.origin,
+      request.socket.localPort,
+    )
+  ) {
+    send(response, 403, { error: "administration requires a local origin" });
+    return;
+  }
   const url = new URL(request.url ?? "/", "http://localhost");
 
   if (request.method === "GET" && url.pathname === "/") {
@@ -65,6 +82,17 @@ async function handle(
   }
 
   send(response, 404, { error: "not found" });
+}
+
+export function isLocalRequest(
+  host: string | undefined,
+  origin: string | undefined,
+  port: number | undefined,
+): boolean {
+  if (host !== `localhost:${port}` && host !== `127.0.0.1:${port}`) {
+    return false;
+  }
+  return origin === undefined || origin === `http://${host}`;
 }
 
 function send(response: ServerResponse, status: number, body: unknown): void {
